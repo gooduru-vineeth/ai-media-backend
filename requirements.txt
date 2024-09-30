@@ -1,7 +1,8 @@
-fastapi==0.68.0
-uvicorn==0.15.0
-pydantic==1.8.2
+fastapi
+uvicorn
+pydantic
 transformers
 torch
 pymilvus
 einops
+google-generativeai
