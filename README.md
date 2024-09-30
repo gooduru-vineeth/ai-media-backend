@@ -18,11 +18,21 @@ This is a backend project for AI Media using FastAPI.
 - `app/`: The main application package
   - `api/`: API routes
   - `core/`: Core functionality and config
+    - `embedding.py`: Embedding functionality using Jina AI model
   - `models/`: Database models
   - `schemas/`: Pydantic schemas for request/response models
+
+## Features
+
+- RESTful API endpoints
+- Text embedding using Jina AI model
 
 ## API Documentation
 
 Once the server is running, you can access the API documentation at:
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
+
+## Usage Example
+
+To generate embeddings for text, you can use the `/embed` endpoint:

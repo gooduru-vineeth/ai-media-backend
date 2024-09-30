@@ -3,23 +3,28 @@ from pydantic import BaseModel
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
+from .embedding import router as embedding_router
 
 load_dotenv()
 
 genai.configure(api_key=os.environ['GEMINI_API_KEY'])
 
 router = APIRouter()
+router.include_router(embedding_router, tags=["embedding"])
+
 
 class StoryPrompt(BaseModel):
     prompt: str
+
 
 @router.post("/generate-story")
 async def generate_story(story_prompt: StoryPrompt):
     try:
         model = genai.GenerativeModel("gemini-1.5-pro")
-        
+
         response = model.generate_content(
-            f"Generate a short story based on the following prompt: {story_prompt.prompt}",
+            f"Generate a short story based on the following prompt: {
+                story_prompt.prompt}",
             generation_config=genai.types.GenerationConfig(
                 max_output_tokens=1000,
                 temperature=0.7,
@@ -27,7 +32,8 @@ async def generate_story(story_prompt: StoryPrompt):
                 top_k=40,
             )
         )
-        
+
         return {"story": response.text}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating story: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error generating story: {str(e)}")
