@@ -169,7 +169,8 @@ class Media:
     def merge_video_audio(self, audio_file: str, output_path: str, keep_original_audio: bool = False,
                           audio_start: Optional[float] = None, audio_end: Optional[float] = None,
                           video_start: Optional[float] = None, video_end: Optional[float] = None,
-                          loop_audio: bool = False, fade_audio: bool = False):
+                          loop_audio: bool = False, fade_audio: bool = False,
+                          adjust_video: str = 'none', audio_volume: float = 1.0):
         """
         Merge video with a new audio file.
 
@@ -182,43 +183,57 @@ class Media:
         :param video_end: End time of the video in seconds (optional)
         :param loop_audio: Whether to loop the audio if it's shorter than the video
         :param fade_audio: Whether to apply fade in/out effects to the audio
+        :param adjust_video: How to adjust video if audio length differs ('none', 'cut', 'speed')
+        :param audio_volume: Volume of the new audio (0.0 to 1.0)
         """
         if self.media_type != 'video':
             raise ValueError(
                 "This operation is only applicable to video files.")
 
         try:
-            # Get video duration
+            # Get video and audio durations
             video_duration = self.get_duration() / 1000  # Convert to seconds
+            audio_duration = Media(audio_file).get_duration() / 1000
 
             # Prepare FFmpeg command
-            cmd = ['ffmpeg', '-i', self.file_path]
+            cmd = ['ffmpeg', '-i', self.file_path, '-i', audio_file]
 
             # Handle audio trimming if specified
+            audio_filter = f"volume={audio_volume}"
             if audio_start is not None or audio_end is not None:
-                audio_filter = f"atrim={audio_start or 0}:{audio_end or ''}"
-                if fade_audio:
-                    audio_filter += ",afade=t=in:st=0:d=1,afade=t=out:st={}-1:d=1".format(
-                        audio_end - audio_start if audio_end else video_duration)
-                cmd.extend(['-i', audio_file, '-filter_complex', audio_filter])
+                audio_filter += f",atrim={audio_start or 0}:{audio_end or ''}"
+            if fade_audio:
+                audio_filter += f",afade=t=in:st=0:d=1,afade=t=out:st={
+                    audio_end - audio_start - 1 if audio_end else audio_duration - 1}:d=1"
+
+            # Handle video adjustment based on audio length
+            video_filter = ""
+            if adjust_video == 'cut' and audio_duration < video_duration:
+                video_filter = f"trim=0:{audio_duration}"
+            elif adjust_video == 'speed':
+                speed_factor = audio_duration / video_duration
+                video_filter = f"setpts={speed_factor}*PTS"
+
+            # Combine audio and video filters
+            filter_complex = f"[1:a]{audio_filter}[a];[0:v]{video_filter}[v]"
+
+            if keep_original_audio:
+                filter_complex += ";[0:a][a]amix=inputs=2:duration=longest[outa]"
+                map_audio = "[outa]"
             else:
-                cmd.extend(['-i', audio_file])
+                map_audio = "[a]"
+
+            cmd.extend(['-filter_complex', filter_complex,
+                       '-map', '[v]', '-map', map_audio])
 
             # Handle video trimming if specified
-            if video_start is not None or video_end is not None:
-                cmd.extend(['-ss', str(video_start or 0)])
-                if video_end:
-                    cmd.extend(['-to', str(video_end)])
+            if video_start is not None:
+                cmd.extend(['-ss', str(video_start)])
+            if video_end is not None:
+                cmd.extend(['-to', str(video_end)])
 
-            # Audio mixing options
-            if keep_original_audio:
-                cmd.extend(
-                    ['-filter_complex', '[0:a][1:a]amix=inputs=2:duration=longest'])
-            else:
-                cmd.extend(['-map', '0:v', '-map', '1:a'])
-
-            # Loop audio if it's shorter than the video
-            if loop_audio:
+            # Loop audio if it's shorter than the video and not adjusting video
+            if loop_audio and adjust_video == 'none' and audio_duration < video_duration:
                 cmd.extend(['-stream_loop', '-1'])
 
             # Output options
@@ -274,11 +289,13 @@ def merge_video_audio_api(video_file: str, audio_file: str, output_file: str,
                           keep_original_audio: bool = False, audio_start: Optional[float] = None,
                           audio_end: Optional[float] = None, video_start: Optional[float] = None,
                           video_end: Optional[float] = None, loop_audio: bool = False,
-                          fade_audio: bool = False):
+                          fade_audio: bool = False, adjust_video: str = 'none',
+                          audio_volume: float = 1.0):
     try:
         media = Media(video_file)
         media.merge_video_audio(audio_file, output_file, keep_original_audio, audio_start,
-                                audio_end, video_start, video_end, loop_audio, fade_audio)
+                                audio_end, video_start, video_end, loop_audio, fade_audio,
+                                adjust_video, audio_volume)
         return {"message": "Video and audio merged successfully", "output_file": output_file}
     except Exception as e:
         raise ValueError(f"Error merging video and audio: {str(e)}")

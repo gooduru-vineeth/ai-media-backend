@@ -404,7 +404,9 @@ async def merge_video_audio(
     video_start: Optional[float] = Form(None),
     video_end: Optional[float] = Form(None),
     loop_audio: bool = Form(False),
-    fade_audio: bool = Form(False)
+    fade_audio: bool = Form(False),
+    adjust_video: str = Form('none'),
+    audio_volume: float = Form(1.0)
 ):
     try:
         temp_video = f"temp_video_{video_file.filename}"
@@ -425,7 +427,8 @@ async def merge_video_audio(
 
         result = merge_video_audio_api(temp_video, temp_audio, temp_output,
                                        keep_original_audio, audio_start, audio_end,
-                                       video_start, video_end, loop_audio, fade_audio)
+                                       video_start, video_end, loop_audio, fade_audio,
+                                       adjust_video, audio_volume)
 
         # Read the merged file
         with open(temp_output, "rb") as merged_file:
