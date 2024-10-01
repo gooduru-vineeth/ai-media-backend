@@ -8,3 +8,4 @@ einops
 google-generativeai
 pymongo
 python-multipart
+pydub

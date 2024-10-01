@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException, Response, UploadFile, File, Form
 from pydantic import BaseModel
+from typing import List
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 from .embedding import router as embedding_router
 from .sarvam import SarvamAI, SpeechToTextRequest, TranslateTextRequest, TextToSpeechRequest, SpeechToTextTranslateRequest
+from .audio import Audio, trim_audio_api, combine_audio_api
+from pydub import AudioSegment
 
 load_dotenv()
 
@@ -108,3 +111,84 @@ async def speech_to_text_translate(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error in speech to text translation: {str(e)}")
+
+
+class TrimAudioRequest(BaseModel):
+    start_ms: int
+    end_ms: int
+
+
+@router.post("/trim-audio")
+async def trim_audio(
+    file: UploadFile = File(...),
+    start_ms: int = Form(...),
+    end_ms: int = Form(...)
+):
+    try:
+        trim_request = TrimAudioRequest(start_ms=start_ms, end_ms=end_ms)
+        # Create a temporary file to store the uploaded audio
+        temp_input = f"temp_input_{file.filename}"
+        temp_output = f"temp_output_{file.filename}"
+
+        with open(temp_input, "wb") as buffer:
+            buffer.write(await file.read())
+
+        result = trim_audio_api(temp_input, temp_output,
+                                trim_request.start_ms, trim_request.end_ms)
+
+        # Read the trimmed audio file
+        with open(temp_output, "rb") as trimmed_file:
+            trimmed_audio_data = trimmed_file.read()
+
+        # Clean up temporary files
+        os.remove(temp_input)
+        os.remove(temp_output)
+
+        # Return the trimmed audio as a response
+        return Response(
+            content=trimmed_audio_data,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": f"attachment; filename=trimmed_{file.filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error trimming audio: {str(e)}")
+
+
+@router.post("/combine-audio")
+async def combine_audio(files: List[UploadFile] = File(...)):
+    temp_files = []
+    temp_output = "temp_combined_output.mp3"
+    try:
+        for file in files:
+            temp_file = f"temp_{file.filename}"
+            with open(temp_file, "wb") as buffer:
+                buffer.write(await file.read())
+            temp_files.append(temp_file)
+
+        result = combine_audio_api(temp_files, temp_output)
+
+        # Read the combined audio file
+        with open(temp_output, "rb") as combined_file:
+            combined_audio_data = combined_file.read()
+
+        # Return the combined audio as a response
+        return Response(
+            content=combined_audio_data,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": "attachment; filename=combined_audio.mp3"}
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Unexpected error combining audio: {str(e)}")
+    finally:
+        # Clean up temporary files
+        for temp_file in temp_files:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+        if os.path.exists(temp_output):
+            os.remove(temp_output)
