@@ -4,7 +4,9 @@ from app.api import router as api_router
 from typing import List, Optional
 from datetime import datetime
 from database import MongoDB
-from models import ImageAnalysis
+from models import ImageAnalysis, create_milvus_collection
+from app.core.embedding import jina_embedding_model
+from pymilvus import Collection, FieldSchema, CollectionSchema, DataType, connections, utility
 
 app = FastAPI(title="AI Media Backend")
 
@@ -22,6 +24,101 @@ app.include_router(api_router, prefix="/api")
 # Initialize MongoDB connection
 mongo_db = MongoDB("mongodb://localhost:27017", "image_analysis_db")
 
+# Initialize Milvus collection
+milvus_collection = create_milvus_collection()
+
+
+def setup_milvus_collection():
+    # Define the collection name
+    collection_name = "image_analysis_2"
+
+    # Check if the collection exists
+    if not utility.has_collection(collection_name):
+        # Define the schema for the collection
+        fields = [
+            FieldSchema(name="id", dtype=DataType.INT64,
+                        is_primary=True, auto_id=True),
+            # Adjust dim as needed
+            FieldSchema(name="image_embedding",
+                        dtype=DataType.FLOAT_VECTOR, dim=512)
+        ]
+        schema = CollectionSchema(fields)
+
+        # Create the collection
+        collection = Collection(name=collection_name, schema=schema)
+        print(f"Collection '{collection_name}' created.")
+    else:
+        collection = Collection(name=collection_name)
+        print(f"Collection '{collection_name}' already exists.")
+
+    # Create an index if it doesn't exist
+    if not collection.has_index():
+        index_params = {
+            "index_type": "IVF_FLAT",
+            "metric_type": "L2",
+            "params": {"nlist": 1024}
+        }
+        collection.create_index(
+            field_name="image_embedding", index_params=index_params)
+        print(f"Index created for collection '{collection_name}'.")
+    else:
+        print(f"Index already exists for collection '{collection_name}'.")
+
+    # Load the collection
+    collection.load()
+    print(f"Collection '{collection_name}' loaded successfully.")
+
+    return collection
+
+
+def insert_document_to_milvus(document):
+    # Combine relevant text fields
+    text = f"{document['detailed_description']} {' '.join(document['tags'])} {
+        ' '.join(document['keywords'])}"
+
+    # Generate embeddings using the Jina embedding model
+    doc_embedding = jina_embedding_model.encode([text])[0].tolist()
+
+    # Prepare the entity data for Milvus insertion
+    entity = {
+        "embedding": doc_embedding,
+        "text": text,
+        "mongo_id": str(document['_id'])
+    }
+
+    # Insert the entity into Milvus
+    res = milvus_collection.insert([entity])
+
+    # You might want to log or handle the insertion result
+    print(f"Milvus insertion result: {res}")
+
+    return res
+
+
+def search_similar_documents(query_text, limit=5):
+    # Generate embedding for the query text using Jina embedding model
+    query_embedding = jina_embedding_model.encode([query_text])[0].tolist()
+
+    # Load the collection into memory for searching
+    milvus_collection.load()
+
+    # Define search parameters
+    search_params = {
+        "metric_type": "L2",
+        "params": {"nprobe": 10}
+    }
+
+    # Perform the search
+    results = milvus_collection.search(
+        [query_embedding],
+        "embedding",
+        search_params,
+        limit=limit,
+        output_fields=["text", "mongo_id"]
+    )
+
+    return results[0]
+
 # Dependency to get the MongoDB instance
 
 
@@ -38,7 +135,10 @@ async def root():
 
 @app.post("/image-analysis/", response_model=str)
 async def create_image_analysis(image_analysis: ImageAnalysis, db: MongoDB = Depends(get_db)):
-    return db.create_image_analysis(image_analysis)
+    image_id = db.create_image_analysis(image_analysis)
+    document = db.get_image_analysis(image_id)
+    insert_document_to_milvus(document)
+    return image_id
 
 
 @app.get("/image-analysis/{image_id}", response_model=Optional[ImageAnalysis])
@@ -86,6 +186,27 @@ async def get_images_by_scene_type(scene_type: str, db: MongoDB = Depends(get_db
 async def get_images_by_date_range(start_date: datetime, end_date: datetime, db: MongoDB = Depends(get_db)):
     return db.get_images_by_date_range(start_date, end_date)
 
+
+@app.post("/search-similar-images/", response_model=List[dict])
+async def search_similar_images(query: str, limit: int = 5):
+    results = search_similar_documents(query, limit)
+    response = []
+    for result in results:
+        response.append({
+            'distance': result.distance,
+            'text': result.entity.get('text'),
+            'mongo_id': result.entity.get('mongo_id')
+        })
+    return response
+
 if __name__ == "__main__":
+    try:
+        milvus_collection = create_milvus_collection()
+        if milvus_collection:
+            milvus_collection.load()
+            print(f"Collection 'image_analysis' loaded successfully.")
+        # Your main code here
+    except Exception as e:
+        print(f"An error occurred: {e}")
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

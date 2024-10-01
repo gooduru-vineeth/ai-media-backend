@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
+from pymilvus import connections, CollectionSchema, FieldSchema, DataType, Collection, utility
 
 
 class ObjectLabel(BaseModel):
@@ -85,3 +86,54 @@ class ImageAnalysis(BaseModel):
                                 description="List of keywords that best represent the image.")
     last_analyzed: datetime = Field(
         default_factory=datetime.utcnow, description="Timestamp of when the image was last analyzed.")
+
+
+def create_milvus_collection():
+    try:
+        # Connect to Milvus
+        conn = connections.connect(host="127.0.0.1", port=19530)
+
+        collection_name = "image_analysis_2"
+
+        # Check if the collection exists
+        if not utility.has_collection(collection_name):
+            # Define a schema for the collection (including MongoDB ID as a string)
+            fields = [
+                FieldSchema(name="id", dtype=DataType.INT64,
+                            is_primary=True, auto_id=True),
+                FieldSchema(name="embedding",
+                            dtype=DataType.FLOAT_VECTOR, dim=1024),
+                FieldSchema(name="text", dtype=DataType.VARCHAR,
+                            max_length=10000),
+                FieldSchema(name="mongo_id",
+                            dtype=DataType.VARCHAR, max_length=50)
+            ]
+
+            # Define the schema for the collection
+            schema = CollectionSchema(
+                fields, description="Image embeddings collection with raw text and MongoDB ID")
+
+            # Create the collection
+            collection = Collection(name=collection_name, schema=schema)
+            print(f"Collection '{collection_name}' created.")
+        else:
+            collection = Collection(name=collection_name)
+            print(f"Collection '{collection_name}' already exists.")
+
+        # Create an index if it doesn't exist
+        if not collection.has_index():
+            index_params = {
+                "index_type": "IVF_FLAT",
+                "metric_type": "L2",
+                "params": {"nlist": 1024}
+            }
+            collection.create_index(
+                field_name="embedding", index_params=index_params)
+            print(f"Index created for collection '{collection_name}'.")
+        else:
+            print(f"Index already exists for collection '{collection_name}'.")
+
+        return collection
+    except Exception as e:
+        print(f"Error creating or accessing Milvus collection: {e}")
+        return None
