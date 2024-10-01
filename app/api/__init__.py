@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from .embedding import router as embedding_router
 from .sarvam import SarvamAI, SpeechToTextRequest, TranslateTextRequest, TextToSpeechRequest, SpeechToTextTranslateRequest
 from .audio import Audio, trim_audio_api, combine_audio_api
-from pydub import AudioSegment
+from .video import Video, trim_video_api, combine_videos_api, get_video_info
 
 load_dotenv()
 
@@ -192,3 +192,98 @@ async def combine_audio(files: List[UploadFile] = File(...)):
                 os.remove(temp_file)
         if os.path.exists(temp_output):
             os.remove(temp_output)
+
+
+@router.post("/trim-video")
+async def trim_video(
+    file: UploadFile = File(...),
+    start_ms: int = Form(...),
+    end_ms: int = Form(...),
+    preserve_audio: bool = Form(True)
+):
+    try:
+        temp_input = f"temp_input_{file.filename}"
+        temp_output = f"temp_output_{file.filename}"
+
+        with open(temp_input, "wb") as buffer:
+            buffer.write(await file.read())
+
+        result = trim_video_api(temp_input, temp_output,
+                                start_ms, end_ms, preserve_audio)
+
+        # Read the trimmed video file
+        with open(temp_output, "rb") as trimmed_file:
+            trimmed_video_data = trimmed_file.read()
+
+        # Clean up temporary files
+        os.remove(temp_input)
+        os.remove(temp_output)
+
+        # Return the trimmed video as a response
+        return Response(
+            content=trimmed_video_data,
+            media_type="video/mp4",
+            headers={
+                "Content-Disposition": f"attachment; filename=trimmed_{file.filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error trimming video: {str(e)}")
+
+
+@router.post("/combine-videos")
+async def combine_videos(
+    files: List[UploadFile] = File(...),
+    preserve_audio: bool = Form(True)
+):
+    temp_files = []
+    temp_output = "temp_combined_output.mp4"
+    try:
+        for file in files:
+            temp_file = f"temp_{file.filename}"
+            with open(temp_file, "wb") as buffer:
+                buffer.write(await file.read())
+            temp_files.append(temp_file)
+
+        result = combine_videos_api(temp_files, temp_output, preserve_audio)
+
+        # Read the combined video file
+        with open(temp_output, "rb") as combined_file:
+            combined_video_data = combined_file.read()
+
+        # Return the combined video as a response
+        return Response(
+            content=combined_video_data,
+            media_type="video/mp4",
+            headers={
+                "Content-Disposition": "attachment; filename=combined_video.mp4"}
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Unexpected error combining videos: {str(e)}")
+    finally:
+        # Clean up temporary files
+        for temp_file in temp_files:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+        if os.path.exists(temp_output):
+            os.remove(temp_output)
+
+
+@router.post("/video-info")
+async def video_info(file: UploadFile = File(...)):
+    try:
+        temp_file = f"temp_{file.filename}"
+        with open(temp_file, "wb") as buffer:
+            buffer.write(await file.read())
+
+        info = get_video_info(temp_file)
+        return {"video_info": info}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error getting video info: {str(e)}")
+    finally:
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
