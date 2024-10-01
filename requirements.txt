@@ -6,3 +6,4 @@ torch
 pymilvus
 einops
 google-generativeai
+pymongo
