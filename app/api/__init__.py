@@ -417,6 +417,12 @@ async def merge_video_audio(
         with open(temp_audio, "wb") as buffer:
             buffer.write(await audio_file.read())
 
+        # Convert 0 to None for start and end parameters
+        audio_start = None if audio_start == 0 else audio_start
+        audio_end = None if audio_end == 0 else audio_end
+        video_start = None if video_start == 0 else video_start
+        video_end = None if video_end == 0 else video_end
+
         result = merge_video_audio_api(temp_video, temp_audio, temp_output,
                                        keep_original_audio, audio_start, audio_end,
                                        video_start, video_end, loop_audio, fade_audio)
