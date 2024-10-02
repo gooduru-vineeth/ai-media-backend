@@ -259,11 +259,9 @@ def trim_media_api(input_file: str, output_file: str, start_ms: int, end_ms: int
 
 def combine_media_api(input_files: List[str], output_file: str, output_type: str = 'auto', preserve_audio: bool = True):
     try:
-        # Determine the output type if set to 'auto'
         if output_type == 'auto':
             output_type = Media(input_files[0]).media_type
 
-        # Add the appropriate file extension based on the output type
         if output_type == 'video':
             output_file += '.mp4'
         else:  # audio

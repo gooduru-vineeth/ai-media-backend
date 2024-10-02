@@ -7,6 +7,17 @@ from database import MongoDB
 from models import ImageAnalysis, create_milvus_collection
 from app.core.embedding import jina_embedding_model
 from pymilvus import Collection, FieldSchema, CollectionSchema, DataType, connections, utility
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
 
 app = FastAPI(title="AI Media Backend")
 

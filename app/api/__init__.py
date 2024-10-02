@@ -10,6 +10,9 @@ from .audio import Audio, trim_audio_api, combine_audio_api
 from .video import Video, trim_video_api, combine_videos_api, get_video_info
 from .media import trim_media_api, combine_media_api, get_media_info_api, merge_video_audio_api
 from .asr import transcribe_audio_api, transcribe_audio_api_default
+from .ai_media import StoryToVideoRequest, create_story_video
+from .google import google_tts
+from google.cloud import texttospeech
 
 load_dotenv()
 
@@ -515,3 +518,58 @@ async def transcribe_audio_default(file: UploadFile = File(...)):
     finally:
         if os.path.exists(temp_file):
             os.remove(temp_file)
+
+
+@router.post("/create-story-video")
+async def create_story_video_endpoint(request: StoryToVideoRequest):
+    return await create_story_video(request)
+
+
+class TTSRequest(BaseModel):
+    text: str
+    language_code: str = "en-US"
+    voice_name: str = None
+    ssml_gender: str = "NEUTRAL"
+    audio_encoding: str = "MP3"
+
+
+@router.post("/google-tts")
+async def google_text_to_speech(request: TTSRequest):
+    try:
+        ssml_gender_map = {
+            "NEUTRAL": texttospeech.SsmlVoiceGender.NEUTRAL,
+            "MALE": texttospeech.SsmlVoiceGender.MALE,
+            "FEMALE": texttospeech.SsmlVoiceGender.FEMALE,
+        }
+
+        audio_encoding_map = {
+            "MP3": texttospeech.AudioEncoding.MP3,
+            "LINEAR16": texttospeech.AudioEncoding.LINEAR16,
+            "MULAW": texttospeech.AudioEncoding.MULAW,
+        }
+
+        ssml_gender = ssml_gender_map.get(
+            request.ssml_gender.upper(), texttospeech.SsmlVoiceGender.NEUTRAL)
+        audio_encoding = audio_encoding_map.get(
+            request.audio_encoding.upper(), texttospeech.AudioEncoding.MP3)
+
+        audio_content = google_tts.text_to_speech(
+            text=request.text,
+            language_code=request.language_code,
+            voice_name=request.voice_name,
+            ssml_gender=ssml_gender,
+            audio_encoding=audio_encoding
+        )
+
+        content_type = "audio/mpeg" if audio_encoding == texttospeech.AudioEncoding.MP3 else "audio/wav"
+        file_extension = "mp3" if audio_encoding == texttospeech.AudioEncoding.MP3 else "wav"
+
+        return Response(
+            content=audio_content,
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename=tts_output.{file_extension}"}
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error in Google TTS: {str(e)}")

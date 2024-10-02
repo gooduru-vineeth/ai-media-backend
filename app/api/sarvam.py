@@ -175,7 +175,7 @@ class TextToSpeechRequest(BaseModel):
     inputs: List[str] = Field(
         ["Hello , how are you ?"], description="List of input sentences to be converted to speech")
     target_language_code: str = Field(
-        "hi-IN", description="Language code")
+        "en-IN", description="Language code")
     speaker: str = Field(
         "meera", description="Speaker for the generated speech")
     pitch: Optional[float] = Field(
@@ -185,7 +185,7 @@ class TextToSpeechRequest(BaseModel):
     loudness: Optional[float] = Field(
         None, description="Volume of the generated speech")
     speech_sample_rate: int = Field(
-        22050, description="Sample rate of the generated speech")
+        22050, description="Sample rate of the generated speech, higher the better quality, Available options: 8000, 16000, 22050")
     enable_preprocessing: bool = Field(
         False, description="Enable custom preprocessing")
     model: str = Field(
