@@ -1,6 +1,8 @@
 import whisper
 import os
 import torch
+from fastapi import UploadFile
+import tempfile
 
 
 class AutomaticSpeechRecognition:
@@ -68,11 +70,21 @@ def transcribe_audio_api(audio_file_path: str, model_name: str = "tiny"):
         raise ValueError(f"Error transcribing audio: {str(e)}")
 
 
-def transcribe_audio_api_default(audio_file_path: str):
+async def transcribe_audio_api_default(audio_file: UploadFile):
     try:
+        # Create a temporary file to store the uploaded content
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
+            content = await audio_file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+
         # Use the singleton instance with "turbo" model
         asr = AutomaticSpeechRecognition.get_instance("turbo")
-        result = asr.transcribe(audio_file_path)
+        result = asr.transcribe(temp_file_path)
+
+        # Clean up the temporary file
+        os.remove(temp_file_path)
+
         return result
     except Exception as e:
         raise ValueError(f"Error transcribing audio: {str(e)}")

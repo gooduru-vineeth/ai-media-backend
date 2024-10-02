@@ -40,6 +40,13 @@ class MongoDB:
         )
         return result.modified_count > 0
 
+    def update_image_analysis_based_on_video_path(self, clip_url: str, data: dict) -> bool:
+        result = self.collection.update_one(
+            {"metadata.clip_url": clip_url},
+            {"$set": data}
+        )
+        return result.modified_count > 0
+
     # Delete
     def delete_image_analysis(self, image_id: str) -> bool:
         result = self.collection.delete_one({"_id": ObjectId(image_id)})
@@ -59,3 +66,9 @@ class MongoDB:
                 "$lte": end_date
             }
         })]
+
+
+if __name__ == "__main__":
+    mongo_db = MongoDB("mongodb://localhost:27017", "image_analysis_db")
+    image_analysis = mongo_db.get_image_analysis("66fbac39c7db55262d280788")
+    print(image_analysis)

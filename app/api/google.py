@@ -32,7 +32,12 @@ class GoogleTTS:
         )
 
         audio_config = texttospeech.AudioConfig(
-            audio_encoding=audio_encoding
+            audio_encoding=audio_encoding,
+            effects_profile_id=[
+                "small-bluetooth-speaker-class-device"
+            ],
+            pitch=0,
+            speaking_rate=0
         )
 
         response = self.client.synthesize_speech(
