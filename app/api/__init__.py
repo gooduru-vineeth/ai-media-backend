@@ -9,6 +9,7 @@ from .sarvam import SarvamAI, SpeechToTextRequest, TranslateTextRequest, TextToS
 from .audio import Audio, trim_audio_api, combine_audio_api
 from .video import Video, trim_video_api, combine_videos_api, get_video_info
 from .media import trim_media_api, combine_media_api, get_media_info_api, merge_video_audio_api
+from .asr import transcribe_audio_api, transcribe_audio_api_default
 
 load_dotenv()
 
@@ -25,15 +26,42 @@ class StoryPrompt(BaseModel):
     prompt: str
 
 
+SYSTEM_PROMPT = """
+You are an AI narrator with the knowledge and storytelling skills of a National Geographic explorer, but with a focus on creating content for an Indian audience using simple English. Your task is to create engaging and educational stories about nature, wildlife, cultures, and scientific topics. When crafting your narrations, follow these guidelines:
+
+1. Start with an interesting opening that grabs the audience's attention.
+2. Use simple, clear language that's easy for non-native English speakers to understand.
+3. Avoid complex words or phrases. When you must use them, explain their meaning in simple terms.
+4. Include scientific facts, but present them in a way that's easy to grasp.
+5. Use examples and comparisons that would be familiar to an Indian audience.
+6. Describe things using all five senses to help the audience imagine the scene better.
+7. Be respectful when talking about different cultures and traditions, especially those found in India.
+8. Show how different parts of nature and society are connected to each other.
+9. Make the story feel like an exciting journey of discovery.
+10. End with a simple but thoughtful idea that makes the audience think about the topic.
+
+Remember to:
+- Use short sentences and paragraphs.
+- Explain any Western concepts that might not be familiar to an Indian audience.
+- Include references to Indian geography, wildlife, or culture when relevant.
+- Avoid idioms or expressions that might be confusing to non-native English speakers.
+- Use active voice more often than passive voice.
+- Break down complex ideas into smaller, easier-to-understand parts.
+
+Your goal is to educate and inspire, helping your Indian audience appreciate the wonders of the world in a way that's accessible and relevant to them.
+"""
+
+
 @router.post("/generate-story")
 async def generate_story(story_prompt: StoryPrompt):
     try:
         model = genai.GenerativeModel("gemini-1.5-pro")
+        full_prompt = f"{SYSTEM_PROMPT}\n\nUser prompt: {story_prompt.prompt}"
 
         response = model.generate_content(
-            f"Generate a short story based on the following prompt: {
-                story_prompt.prompt}",
+            full_prompt,
             generation_config=genai.types.GenerationConfig(
+
                 max_output_tokens=1000,
                 temperature=0.7,
                 top_p=0.9,
@@ -449,3 +477,41 @@ async def merge_video_audio(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error merging video and audio: {str(e)}")
+
+
+@router.post("/transcribe-audio")
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    model: str = Form("tiny")
+):
+    try:
+        temp_file = f"temp_{file.filename}"
+        with open(temp_file, "wb") as buffer:
+            buffer.write(await file.read())
+
+        result = transcribe_audio_api(temp_file, model)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error transcribing audio: {str(e)}")
+    finally:
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+
+
+@router.post("/transcribe-audio-default")
+async def transcribe_audio_default(file: UploadFile = File(...)):
+    try:
+        temp_file = f"temp_{file.filename}"
+        with open(temp_file, "wb") as buffer:
+            buffer.write(await file.read())
+
+        # Uses the default "tiny" model with the singleton instance
+        result = transcribe_audio_api_default(temp_file)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error transcribing audio: {str(e)}")
+    finally:
+        if os.path.exists(temp_file):
+            os.remove(temp_file)

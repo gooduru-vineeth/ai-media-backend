@@ -9,3 +9,5 @@ google-generativeai
 pymongo
 python-multipart
 pydub
+openai-whisper
+setuptools-rust
