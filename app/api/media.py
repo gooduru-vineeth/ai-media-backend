@@ -248,10 +248,22 @@ class Media:
 # API functions using the Media class
 
 
-def trim_media_api(input_file: str, output_file: str, start_ms: int, end_ms: int, preserve_audio: bool = True):
+def trim_media_api(input_file, output_file, start_time, end_time):
     try:
-        media = Media(input_file)
-        media.trim(start_ms, end_ms, output_file, preserve_audio)
+        # Check if input_file is a dictionary
+        if isinstance(input_file, dict):
+            # Assume the dictionary contains a 'path' key with the actual file path
+            file_path = input_file.get('path')
+            if not file_path:
+                raise ValueError(
+                    "Input file dictionary does not contain a 'path' key")
+        else:
+            file_path = input_file
+
+        # Now use file_path to create the Media object
+        media = Media(file_path)
+
+        media.trim(start_time, end_time, output_file)
         return {"message": "Media trimmed successfully", "output_file": output_file}
     except Exception as e:
         raise ValueError(f"Error trimming media: {str(e)}")
@@ -259,6 +271,7 @@ def trim_media_api(input_file: str, output_file: str, start_ms: int, end_ms: int
 
 def combine_media_api(input_files: List[str], output_file: str, output_type: str = 'auto', preserve_audio: bool = True):
     try:
+        print("Debug: input_files =", input_files)  # Add this line
         if output_type == 'auto':
             output_type = Media(input_files[0]).media_type
 

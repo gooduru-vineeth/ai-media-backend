@@ -1,3 +1,4 @@
+from app.api.images_videos import images_videos_router
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import router as api_router
@@ -21,16 +22,20 @@ logging.basicConfig(
 
 app = FastAPI(title="AI Media Backend")
 
-# {{ edit_2 }}
+# CORS middleware setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
+# Include the main API router
 app.include_router(api_router, prefix="/api")
+
+# Include the images_videos router
+app.include_router(images_videos_router, prefix="/api")
 
 # Initialize MongoDB connection
 mongo_db = MongoDB("mongodb://localhost:27017", "image_analysis_db")
@@ -209,6 +214,7 @@ async def search_similar_images(query: str, limit: int = 5):
             'mongo_id': result.entity.get('mongo_id')
         })
     return response
+
 
 if __name__ == "__main__":
     try:

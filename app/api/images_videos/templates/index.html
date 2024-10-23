@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Search</title>
+    <style>
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+      }
+      .list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      img {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Image Search</h1>
+    <form id="searchForm">
+      <input type="text" id="query" placeholder="Enter search query" required />
+      <select id="format">
+        <option value="list">List</option>
+        <option value="grid">Grid</option>
+      </select>
+      <button type="submit">Search</button>
+    </form>
+    <div id="results"></div>
+
+    <script>
+      const searchForm = document.getElementById("searchForm");
+      const resultsDiv = document.getElementById("results");
+
+      searchForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const query = document.getElementById("query").value;
+        const format = document.getElementById("format").value;
+
+        // Update the API endpoint URL to match the FastAPI route
+        const response = await fetch(
+          `/api/search_images?query=${encodeURIComponent(
+            query
+          )}&format=${format}`
+        );
+        const data = await response.json();
+
+        displayResults(data.images, data.format);
+      });
+
+      function displayResults(images, format) {
+        resultsDiv.innerHTML = "";
+        const container = document.createElement("div");
+        container.className = format;
+
+        images.forEach((image) => {
+          const imgElement = document.createElement("img");
+          imgElement.src = image.urls.small;
+          imgElement.alt =
+            image.alt_description || image.description || "Image";
+
+          const linkElement = document.createElement("a");
+          linkElement.href = image.links.html;
+          linkElement.target = "_blank";
+          linkElement.appendChild(imgElement);
+
+          container.appendChild(linkElement);
+        });
+
+        resultsDiv.appendChild(container);
+      }
+    </script>
+  </body>
+</html>
