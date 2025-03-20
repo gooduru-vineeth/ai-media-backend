@@ -1,4 +1,4 @@
-## This Project was made for [Google Gen AI Hackathon](https://devfolio.co/google-genaiexchange) | Below video is a generated from our project: 
+## This Project was made for [Google Gen AI Hackathon](https://devfolio.co/google-genaiexchange) | Below video is a generated from our project.
 Video Link: https://drive.google.com/file/d/1_mw-jeZ373G7fIsf2zKwztOMYBS2BPm9/view
 
 # AI Media Backend
