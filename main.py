@@ -9,6 +9,11 @@ from models import ImageAnalysis, create_milvus_collection
 from app.core.embedding import jina_embedding_model
 from pymilvus import Collection, FieldSchema, CollectionSchema, DataType, connections, utility
 import logging
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -38,7 +43,10 @@ app.include_router(api_router, prefix="/api")
 app.include_router(images_videos_router, prefix="/api")
 
 # Initialize MongoDB connection
-mongo_db = MongoDB("mongodb://localhost:27017", "image_analysis_db")
+mongo_db = MongoDB(
+    os.getenv("MONGODB_URI", "mongodb://localhost:27017"),
+    os.getenv("MONGODB_DB_NAME", "image_analysis_db")
+)
 
 # Initialize Milvus collection
 milvus_collection = create_milvus_collection()

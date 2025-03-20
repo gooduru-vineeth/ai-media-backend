@@ -23,7 +23,10 @@ from pymilvus import MilvusClient
 load_dotenv()
 
 # Initialize MongoDB connection
-mongo_db = MongoDB("mongodb://localhost:27017", "image_analysis_db")
+mongo_db = MongoDB(
+    os.getenv("MONGODB_URI", "mongodb://localhost:27017"),
+    os.getenv("MONGODB_DB_NAME", "image_analysis_db")
+)
 conn = MilvusClient()
 collection_name = "image_analysis_2"
 
@@ -431,7 +434,7 @@ def combine_media_api(input_files: List[str], output_file: str, output_type: str
 
 if __name__ == "__main__":
     # story = """
-    # Imagine a place colder than the Himalayas, with days as short as a blink and nights longer than a Bollywood film.  This is Alaska, the largest state in America. Think of it as a giant ice cream cone on top of the US map! \n\nAlaska is a land of extremes. Towering mountains, bigger than any in India, pierce the sky.  These mountains are so tall, their peaks are always covered in snow, even in summer!  Imagine the Himalayas, but even bigger and with more snow.\n\nBetween these mountains flow giant rivers of ice called glaciers.  They are like frozen rivers, but much slower, moving just a little bit each year.  Some of these glaciers are bigger than entire cities in India!\n\nBut Alaska is not just ice and cold. It’s also home to amazing animals.  Brown bears, bigger than any sloth bear you've ever seen, roam the forests and fish for salmon in the rivers.  These salmon, red like the sindoor worn by married women, travel thousands of miles to lay their eggs in these rivers.\n\nIn the sky, bald eagles soar on the wind.  These majestic birds, with their white heads that look like turbans, are a symbol of power and freedom.\n\nAlaska is a land of stark beauty and incredible wildlife.  It reminds us that even in the coldest and most remote corners of our planet, life finds a way. It also shows us the power of nature and how everything is connected.  From the glaciers to the salmon, to the bears and eagles, each part depends on the other.  \n\nSo, next time you feel a chill in the air, think of Alaska. It’s a reminder that even in the coldest places, there is beauty and wonder to be found."""
+    # Imagine a place colder than the Himalayas, with days as short as a blink and nights longer than a Bollywood film.  This is Alaska, the largest state in America. Think of it as a giant ice cream cone on top of the US map! \n\nAlaska is a land of extremes. Towering mountains, bigger than any in India, pierce the sky.  These mountains are so tall, their peaks are always covered in snow, even in summer!  Imagine the Himalayas, but even bigger and with more snow.\n\nBetween these mountains flow giant rivers of ice called glaciers.  They are like frozen rivers, but much slower, moving just a little bit each year.  Some of these glaciers are bigger than entire cities in India!\n\nBut Alaska is not just ice and cold. It's also home to amazing animals.  Brown bears, bigger than any sloth bear you've ever seen, roam the forests and fish for salmon in the rivers.  These salmon, red like the sindoor worn by married women, travel thousands of miles to lay their eggs in these rivers.\n\nIn the sky, bald eagles soar on the wind.  These majestic birds, with their white heads that look like turbans, are a symbol of power and freedom.\n\nAlaska is a land of stark beauty and incredible wildlife.  It reminds us that even in the coldest and most remote corners of our planet, life finds a way. It also shows us the power of nature and how everything is connected.  From the glaciers to the salmon, to the bears and eagles, each part depends on the other.  \n\nSo, next time you feel a chill in the air, think of Alaska. It's a reminder that even in the coldest places, there is beauty and wonder to be found."""
 
     async def main():
         data = await generate_video_descriptions_test(
